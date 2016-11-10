@@ -34,12 +34,9 @@ D3D12::cIndexBuffer			m_IndexBuffer;
 
 D3D12::cTexture				m_Texture;
 
-ID3D12DescriptorHeap*		g_pCbvHeap;
-
 D3D12::cConstantBuffer		m_CBViewProj;
 D3D12::cConstantBuffer		m_CBWorld[ 100 ];
 
-//void *						g_pConstBufferData;
 DirectX::XMMATRIX			m_ViewProjMtx;
 DirectX::XMMATRIX *			m_pWorldMtx;
 
@@ -120,26 +117,41 @@ void InitWindow(HINSTANCE hInstance, int nCmdShow)
 
 void SetDescriptor( D3D12::cDevice & rDevice, int index )
 {
+	D3D12_CPU_DESCRIPTOR_HANDLE		Handle;
 	D3D12_CONSTANT_BUFFER_VIEW_DESC	cbvDesc		= {};
 	D3D12_SHADER_RESOURCE_VIEW_DESC	srvDesc		= {};
-	D3D12_CPU_DESCRIPTOR_HANDLE		CpuHandle	= g_pCbvHeap->GetCPUDescriptorHandleForHeapStart();
-	D3D12_GPU_DESCRIPTOR_HANDLE		GpuHandle	= g_pCbvHeap->GetGPUDescriptorHandleForHeapStart();
-	UINT							GapSize		= rDevice.m_pDevice->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-	size_t							DefPtr;
-
-	DefPtr		= CpuHandle.ptr + ( GapSize * 3 * index );
+	D3D12_SAMPLER_DESC				SamplerDesc;
 
 	m_CBViewProj.getViewDesc( cbvDesc );
-	CpuHandle.ptr	= DefPtr + GapSize * 0;
-	rDevice.m_pDevice->CreateConstantBufferView(&cbvDesc, CpuHandle);
+	Handle	= rDevice.GetCpuHandle( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 3 * index + 0 );
+	rDevice.m_pDevice->CreateConstantBufferView(&cbvDesc, Handle);
 
 	m_CBWorld[ index ].getViewDesc( cbvDesc );
-	CpuHandle.ptr	= DefPtr + GapSize * 1;
-	rDevice.m_pDevice->CreateConstantBufferView(&cbvDesc, CpuHandle);
+	Handle	= rDevice.GetCpuHandle( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 3 * index + 1 );
+	rDevice.m_pDevice->CreateConstantBufferView(&cbvDesc, Handle);
 
 	m_Texture.getViewDesc( srvDesc );
-	CpuHandle.ptr	= DefPtr + GapSize * 2;
-	rDevice.m_pDevice->CreateShaderResourceView( m_Texture.m_pTexture, &srvDesc, CpuHandle);
+	Handle	= rDevice.GetCpuHandle( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 3 * index + 2 );
+	rDevice.m_pDevice->CreateShaderResourceView( m_Texture.m_pTexture, &srvDesc, Handle);
+
+
+
+	SamplerDesc.Filter				= D3D12_FILTER_MIN_MAG_MIP_POINT;
+	SamplerDesc.AddressU			= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	SamplerDesc.AddressV			= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	SamplerDesc.AddressW			= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	SamplerDesc.MipLODBias			= 0.0f;
+	SamplerDesc.MaxAnisotropy		= 1;
+	SamplerDesc.ComparisonFunc		= D3D12_COMPARISON_FUNC_NEVER;
+	SamplerDesc.BorderColor[0]		= 1.0f;
+	SamplerDesc.BorderColor[1]		= 1.0f;
+	SamplerDesc.BorderColor[2]		= 1.0f;
+	SamplerDesc.BorderColor[3]		= 1.0f;
+	SamplerDesc.MinLOD				= -D3D12_FLOAT32_MAX;
+	SamplerDesc.MaxLOD				= D3D12_FLOAT32_MAX;
+
+	Handle	= rDevice.GetCpuHandle( D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, index );
+	rDevice.m_pDevice->CreateSampler( &SamplerDesc, Handle);
 }
 
 // アセットの初期化
@@ -147,76 +159,86 @@ void InitAssets()
 {
 	HRESULT hr;
 
+	// シェーダバイナリを読み込む
+	assert( m_Shader.create( L"C:/MyProject/Dx12_Test/Dx12_Test/Dx12_Test/bin", L"Sample" ) );
+	assert( m_Simple.create( L"C:/MyProject/Dx12_Test/Dx12_Test/Dx12_Test/bin", L"Simple2D" ) );
+
 	// ルートシグネチャを作成する
 	{
 		// バインドする定数バッファやシェーダリソースのバインド情報設定
 		// DescriptorHeapのここからここまでをこのインデックスにバインド、って感じ？
-		D3D12_DESCRIPTOR_RANGE ranges[3];
-		D3D12_ROOT_PARAMETER rootParameters[1];
-		D3D12_STATIC_SAMPLER_DESC staticSampler[1];
+		D3D12_DESCRIPTOR_RANGE		CbvRanges[3], SamplerRange[1];
+		D3D12_ROOT_PARAMETER		rootParameters[2];
+		D3D12_STATIC_SAMPLER_DESC	staticSampler[1];
 
-		ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;									// このDescriptorRangeは定数バッファ
-		ranges[0].NumDescriptors = 1;															// Descriptorは1つ
-		ranges[0].BaseShaderRegister = 0;														// シェーダ側の開始インデックスは0番
-		ranges[0].RegisterSpace = 0;															// TODO: SM5.1からのspaceだけど、どういうものかよくわからない
-		ranges[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;		// TODO: とりあえず-1を入れておけばOK？
+		CbvRanges[0].RangeType									= D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		CbvRanges[0].NumDescriptors								= 1;
+		CbvRanges[0].BaseShaderRegister							= 0;
+		CbvRanges[0].RegisterSpace								= 0;
+		CbvRanges[0].OffsetInDescriptorsFromTableStart			= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-		ranges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;									// このDescriptorRangeは定数バッファ
-		ranges[1].NumDescriptors = 1;															// Descriptorは1つ
-		ranges[1].BaseShaderRegister = 1;														// シェーダ側の開始インデックスは0番
-		ranges[1].RegisterSpace = 0;															// TODO: SM5.1からのspaceだけど、どういうものかよくわからない
-		ranges[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;		// TODO: とりあえず-1を入れておけばOK？
+		CbvRanges[1].RangeType									= D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		CbvRanges[1].NumDescriptors								= 1;
+		CbvRanges[1].BaseShaderRegister							= 1;
+		CbvRanges[1].RegisterSpace								= 0;
+		CbvRanges[1].OffsetInDescriptorsFromTableStart			= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-		ranges[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;									// このDescriptorRangeは定数バッファ
-		ranges[2].NumDescriptors = 1;															// Descriptorは1つ
-		ranges[2].BaseShaderRegister = 0;														// シェーダ側の開始インデックスは0番
-		ranges[2].RegisterSpace = 0;															// TODO: SM5.1からのspaceだけど、どういうものかよくわからない
-		ranges[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;		// TODO: とりあえず-1を入れておけばOK？
+		CbvRanges[2].RangeType									= D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		CbvRanges[2].NumDescriptors								= 1;
+		CbvRanges[2].BaseShaderRegister							= 0;
+		CbvRanges[2].RegisterSpace								= 0;
+		CbvRanges[2].OffsetInDescriptorsFromTableStart			= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-		//ranges[3].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;									// このDescriptorRangeは定数バッファ
-		//ranges[3].NumDescriptors = 1;															// Descriptorは1つ
-		//ranges[3].BaseShaderRegister = 0;														// シェーダ側の開始インデックスは0番
-		//ranges[3].RegisterSpace = 0;															// TODO: SM5.1からのspaceだけど、どういうものかよくわからない
-		//ranges[3].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;		// TODO: とりあえず-1を入れておけばOK？
+		rootParameters[0].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		rootParameters[0].DescriptorTable.NumDescriptorRanges	= _countof(CbvRanges);
+		rootParameters[0].DescriptorTable.pDescriptorRanges		= CbvRanges;
+		rootParameters[0].ShaderVisibility						= D3D12_SHADER_VISIBILITY_ALL;
 
-		rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;			// このパラメータはDescriptorTableとして使用する
-		rootParameters[0].DescriptorTable.NumDescriptorRanges = _countof(ranges);								// DescriptorRangeの数は1つ
-		rootParameters[0].DescriptorTable.pDescriptorRanges = ranges;							// DescriptorRangeの先頭アドレス
-		rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;					// このパラメータは頂点シェーダからのみ見える
-																								// D3D12_SHADER_VISIBILITY_ALL にすればすべてのシェーダからアクセス可能
+		SamplerRange[0].RangeType								= D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+		SamplerRange[0].NumDescriptors							= 1;
+		SamplerRange[0].BaseShaderRegister						= 0;
+		SamplerRange[0].RegisterSpace							= 0;
+		SamplerRange[0].OffsetInDescriptorsFromTableStart		= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-		staticSampler[ 0 ].Filter			= D3D12_FILTER_MIN_MAG_MIP_POINT;
-		staticSampler[ 0 ].AddressU			= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		staticSampler[ 0 ].AddressV			= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		staticSampler[ 0 ].AddressW			= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		staticSampler[ 0 ].MipLODBias		= 0.0f;
-		staticSampler[ 0 ].MaxAnisotropy	= 1;
-		staticSampler[ 0 ].ComparisonFunc	= D3D12_COMPARISON_FUNC_NEVER;
-		staticSampler[ 0 ].BorderColor		= D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
-		staticSampler[ 0 ].MinLOD			= -D3D12_FLOAT32_MAX;
-		staticSampler[ 0 ].MaxLOD			= D3D12_FLOAT32_MAX;
-		staticSampler[ 0 ].ShaderRegister	= 0;
-		staticSampler[ 0 ].RegisterSpace	= 0;
-		staticSampler[ 0 ].ShaderVisibility	= D3D12_SHADER_VISIBILITY_ALL;
+		rootParameters[1].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		rootParameters[1].DescriptorTable.NumDescriptorRanges	= _countof(SamplerRange);
+		rootParameters[1].DescriptorTable.pDescriptorRanges		= SamplerRange;
+		rootParameters[1].ShaderVisibility						= D3D12_SHADER_VISIBILITY_ALL;
+
+		staticSampler[0].Filter				= D3D12_FILTER_MIN_MAG_MIP_POINT;
+		staticSampler[0].AddressU			= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		staticSampler[0].AddressV			= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		staticSampler[0].AddressW			= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		staticSampler[0].MipLODBias			= 0.0f;
+		staticSampler[0].MaxAnisotropy		= 1;
+		staticSampler[0].ComparisonFunc		= D3D12_COMPARISON_FUNC_NEVER;
+		staticSampler[0].BorderColor		= D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+		staticSampler[0].MinLOD				= -D3D12_FLOAT32_MAX;
+		staticSampler[0].MaxLOD				= D3D12_FLOAT32_MAX;
+		staticSampler[0].ShaderRegister		= 0;
+		staticSampler[0].RegisterSpace		= 0;
+		staticSampler[0].ShaderVisibility	= D3D12_SHADER_VISIBILITY_ALL;
 
 		D3D12_ROOT_SIGNATURE_DESC desc;
-		desc.NumParameters = _countof(rootParameters);
-		desc.pParameters = rootParameters;
-		desc.NumStaticSamplers = 1;
-		desc.pStaticSamplers = staticSampler;
+		desc.NumParameters		= _countof(rootParameters);
+		desc.pParameters		= rootParameters;
+//		desc.NumStaticSamplers	= _countof(staticSampler);
+//		desc.pStaticSamplers	= staticSampler;
+		desc.NumStaticSamplers	= 0;
+		desc.pStaticSamplers	= nullptr;
 		desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
 		ID3DBlob* pSignature;
-		hr = D3D12SerializeRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1, &pSignature, nullptr);
-		assert(SUCCEEDED(hr));
+		ID3DBlob* pError;
+		hr = D3D12SerializeRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1, &pSignature, &pError);
+		if( FAILED( hr ) ) {
+			OutputDebugStringA( (LPCSTR)pError->GetBufferPointer() );
+			assert( 0 );
+		}
 
 		hr = m_Device.m_pDevice->CreateRootSignature(0, pSignature->GetBufferPointer(), pSignature->GetBufferSize(), IID_PPV_ARGS(&g_pRootSignature));
 		assert(SUCCEEDED(hr));
 	}
-
-	// シェーダバイナリを読み込む
-	assert( m_Shader.create( L"C:/MyProject/Dx12_Test/Dx12_Test/bin", L"Sample" ) );
-	assert( m_Simple.create( L"C:/MyProject/Dx12_Test/Dx12_Test/bin", L"Simple2D" ) );
 
 	// PSOを作成
 	{
@@ -329,19 +351,6 @@ void InitAssets()
 
 	// 定数バッファを作成する
 	{
-		// 定数バッファ用のDescriptorHeapを作成
-		{
-			D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-			desc.NumDescriptors	= 512;
-			desc.Type			= D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-			desc.Flags			= D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-			hr	= m_Device.m_pDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&g_pCbvHeap));
-			assert(SUCCEEDED(hr));
-		}
-
-	}
-
-	{
 		// 定数バッファ
 		DirectX::XMMATRIX		ViewMtx, ProjMtx, VPMtx;
 		DirectX::XMVECTORF32	Pos;
@@ -368,21 +377,6 @@ void InitAssets()
 	// テクスチャ
 	{
 		m_Texture.create( &m_Device, nullptr );
-
-		D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
-
-		desc.Format	= DXGI_FORMAT_R8G8B8A8_UNORM;
-		desc.ViewDimension	= D3D12_SRV_DIMENSION_TEXTURE2D;
-		desc.Shader4ComponentMapping		= D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		desc.Texture2D.MipLevels			= 1;
-		desc.Texture2D.MostDetailedMip		= 0;
-		desc.Texture2D.PlaneSlice			= 0;
-		desc.Texture2D.ResourceMinLODClamp	= 0;
-
-		D3D12_CPU_DESCRIPTOR_HANDLE	CpuHandle	= g_pCbvHeap->GetCPUDescriptorHandleForHeapStart();
-
-		CpuHandle.ptr	+= ( m_Device.m_pDevice->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ) * 2 );
-		m_Device.m_pDevice->CreateShaderResourceView( m_Texture.m_pTexture, &desc, CpuHandle);
 	}
 
 	SetDescriptor( m_Device, 0 );
@@ -397,8 +391,6 @@ void DestroyAssets()
 		m_CBWorld[ i ].destroy();
 	}
 	m_CBViewProj.destroy();
-
-	g_pCbvHeap->Release();
 
 	m_IndexBuffer.destroy();
 	m_VertexBuffer.destroy();
@@ -446,19 +438,6 @@ void DrawScene( D3D12::cDevice & rDevice )
 	rDevice.m_pCommandList->SetPipelineState(g_pPipelineState);
 	rDevice.m_pCommandList->SetGraphicsRootSignature(g_pRootSignature);
 
-	D3D12_CONSTANT_BUFFER_VIEW_DESC	cbvDesc		= {};
-	D3D12_SHADER_RESOURCE_VIEW_DESC	srvDesc		= {};
-	D3D12_CPU_DESCRIPTOR_HANDLE		CpuHandle	= g_pCbvHeap->GetCPUDescriptorHandleForHeapStart();
-	D3D12_GPU_DESCRIPTOR_HANDLE		GpuHandle	= g_pCbvHeap->GetGPUDescriptorHandleForHeapStart();
-	UINT							GapSize		= rDevice.m_pDevice->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-	size_t							DefCpuPtr	= CpuHandle.ptr;
-	size_t							DefGpuPtr	= GpuHandle.ptr;
-
-	//SetDescriptor( m_Device, 0 );
-
-	rDevice.m_pCommandList->SetDescriptorHeaps(1, &g_pCbvHeap);
-	rDevice.m_pCommandList->SetGraphicsRootDescriptorTable(0, GpuHandle);
-
 	rDevice.setVertexBuffer( &m_VertexBuffer );
 	rDevice.setIndexBuffer( &m_IndexBuffer );
 
@@ -467,7 +446,9 @@ void DrawScene( D3D12::cDevice & rDevice )
 
 
 
-
+	ID3D12DescriptorHeap *	ppHeaps[] = {	rDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV),
+											rDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER), };
+	rDevice.m_pCommandList->SetDescriptorHeaps( _countof(ppHeaps), ppHeaps );
 
 
 	for( int i=0; i<_countof(m_CBWorld); ++i ) {
@@ -476,9 +457,8 @@ void DrawScene( D3D12::cDevice & rDevice )
 			SetDescriptor( m_Device, i );
 		}
 
-		GpuHandle.ptr	= DefGpuPtr + ( GapSize * 3 * i );
-
-		rDevice.m_pCommandList->SetGraphicsRootDescriptorTable(0, GpuHandle);
+		rDevice.m_pCommandList->SetGraphicsRootDescriptorTable(0, m_Device.GetGpuHandle( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, i*3 ) );
+		rDevice.m_pCommandList->SetGraphicsRootDescriptorTable(1, m_Device.GetGpuHandle( D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, i ) );
 		rDevice.m_pCommandList->DrawIndexedInstanced( 36, 1, 0, 0, 0 );
 	}
 

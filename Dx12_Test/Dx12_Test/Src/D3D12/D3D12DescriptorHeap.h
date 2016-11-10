@@ -1,45 +1,41 @@
 ﻿//-----------------------------------------------------------------------------
-//! @file   D3D12Shader.h
-//! @brief  D3D12 シェーダ
+//! @file   D3D12DescriptorHeap.h
+//! @brief  D3D12 デスクリプタヒープ
 //! @author 
 //-----------------------------------------------------------------------------
-#ifndef __D3D12_SHADER_H__
-#define	__D3D12_SHADER_H__
+#ifndef __D3D12_DESCRIPTORHEAP_H__
+#define	__D3D12_DESCRIPTORHEAP_H__
 
 //-----------------------------------------------------------------------------
 //!	D3D12
 //-----------------------------------------------------------------------------
 namespace D3D12 {
 
-//-----------------------------------------------------------------------------
-//!	シェーダ
-//-----------------------------------------------------------------------------
-class cShader {
-public:
-	cShader( void );
-	virtual~cShader( void );
+class cDevice;
 
-	bool create( const wchar_t * pDirectory, const wchar_t * pShaderName );
+//-----------------------------------------------------------------------------
+//! @brief  D3D12 デスクリプタヒープ
+//-----------------------------------------------------------------------------
+class cDescriptorHeap {
+public:
+	cDescriptorHeap( void );
+	virtual~cDescriptorHeap( void );
+
+	bool create( cDevice * pDevice, UINT NumDescriptors, D3D12_DESCRIPTOR_HEAP_TYPE eType, bool bShaderVisiblity );
 	void destroy( void );
 
-	const D3D12_SHADER_BYTECODE &	getVS( void );
-	const D3D12_SHADER_BYTECODE &	getPS( void );
+	D3D12_CPU_DESCRIPTOR_HANDLE	GetCpuHandle( UINT index );
+	D3D12_GPU_DESCRIPTOR_HANDLE	GetGpuHandle( UINT index );
 
 private:
-	void analyzeVS( void );
-	void analyzePS( void );
-
-private:
-	D3D12_SHADER_BYTECODE	m_VS;
-	D3D12_SHADER_BYTECODE	m_PS;
-	BYTE *					m_pDataVS;
-	size_t					m_SizeVS;
-	BYTE *					m_pDataPS;
-	size_t					m_SizePS;
+public:
+	ID3D12DescriptorHeap *		m_pDescriptorHeap;
+	D3D12_DESCRIPTOR_HEAP_DESC	m_Desc;
+	UINT						m_IncrementalSize;
 };
 
 };/*namespace D3D12*/
 
-#endif/*__D3D12_SHADER_H__*/
+#endif/*__D3D12_DESCRIPTORHEAP_H__*/
 
 //---< end of file >-----------------------------------------------------------

@@ -18,14 +18,12 @@ cDevice::cDevice( void )
 	m_pCommandAllocator		= nullptr;
 	m_pCommandList			= nullptr;
 	m_pSwapChain			= nullptr;
-	m_pRtvHeap				= nullptr;
 	m_pRenderTargets[ 0 ]	= nullptr;
 	m_pRenderTargets[ 1 ]	= nullptr;
 	m_pFence				= nullptr;
 	m_fenceEvent			= INVALID_HANDLE_VALUE;
 
 	m_frameIndex			= 0;
-	m_rtvDescriptorSize		= 0;
 	m_fenceValue			= 0;
 }
 
@@ -87,6 +85,14 @@ HRESULT cDevice::create( HWND hWnd, UINT32 WindowWidth, UINT32 WindowHeight )
 //	}
 //#endif
 
+	// デスクリプタヒープ作成
+	{
+		m_DescriptorHeap[ D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ].create(	this, 0xF000, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,	TRUE );
+		m_DescriptorHeap[ D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ].create(		this, 0x00FF, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,		TRUE );
+		m_DescriptorHeap[ D3D12_DESCRIPTOR_HEAP_TYPE_RTV ].create(			this, 0x00FF, D3D12_DESCRIPTOR_HEAP_TYPE_RTV,			FALSE );
+		m_DescriptorHeap[ D3D12_DESCRIPTOR_HEAP_TYPE_DSV ].create(			this, 0x00FF, D3D12_DESCRIPTOR_HEAP_TYPE_DSV,			FALSE );
+	}
+
 	// コマンドキューを作成する
 	// 最初なので直接コマンドキュー
 	{
@@ -123,30 +129,17 @@ HRESULT cDevice::create( HWND hWnd, UINT32 WindowWidth, UINT32 WindowHeight )
 		pSwap->Release();
 	}
 
-	// スワップチェインをRenderTargetとして使用するためのDescriptorHeapを作成
-	{
-		D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-		desc.NumDescriptors = 2;		// フレームバッファとバックバッファ
-		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;		// RenderTargetView
-		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;	// シェーダからアクセスしないのでNONEでOK
-
-		hr = m_pDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_pRtvHeap));
-		assert(SUCCEEDED(hr));
-
-		m_rtvDescriptorSize = m_pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	}
-
 	// スワップチェインのバッファを先に作成したDescriptorHeapに登録する
 	{
-		D3D12_CPU_DESCRIPTOR_HANDLE handle = m_pRtvHeap->GetCPUDescriptorHandleForHeapStart();
+		D3D12_CPU_DESCRIPTOR_HANDLE handle = GetCpuHandle( D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 0 );
 
-		for (int i = 0; i < 2; i++)
-		{
+		for (int i = 0; i < 2; i++) {
+
 			hr = m_pSwapChain->GetBuffer(i, IID_PPV_ARGS(&m_pRenderTargets[i]));
 			assert(SUCCEEDED(hr));
 
+			handle = GetCpuHandle( D3D12_DESCRIPTOR_HEAP_TYPE_RTV, i );
 			m_pDevice->CreateRenderTargetView(m_pRenderTargets[i], nullptr, handle);
-			handle.ptr += m_rtvDescriptorSize;
 		}
 	}
 
@@ -200,10 +193,14 @@ void cDevice::destroy( void )
 	SAFE_RELEASE( m_pCommandList );
 
 	SAFE_RELEASE( m_pCommandAllocator );
-	SAFE_RELEASE( m_pRtvHeap );
 	for( int i=0; i<2; ++i )	SAFE_RELEASE( m_pRenderTargets[ i ] );
 	SAFE_RELEASE( m_pSwapChain );
 	SAFE_RELEASE( m_pCommandQueue );
+
+	for( UINT i=0; i<D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++i ) {
+		m_DescriptorHeap[ i ].destroy();
+	}
+
 	SAFE_RELEASE( m_pDevice );
 }
 
@@ -233,9 +230,8 @@ void cDevice::BeginDraw( void )
 	m_pCommandList->ResourceBarrier(1, &barrier);
 
 	// バックバッファを描画ターゲットとして設定する
-	D3D12_CPU_DESCRIPTOR_HANDLE handle = m_pRtvHeap->GetCPUDescriptorHandleForHeapStart();
-	handle.ptr += (m_frameIndex * m_rtvDescriptorSize);
-	m_pCommandList->OMSetRenderTargets(1, &handle, false, nullptr);
+	D3D12_CPU_DESCRIPTOR_HANDLE handle = GetCpuHandle( D3D12_DESCRIPTOR_HEAP_TYPE_RTV, m_frameIndex );
+	m_pCommandList->OMSetRenderTargets( 1, &handle, false, nullptr);
 
 	// ビューポートとシザーボックスを設定
 	m_pCommandList->RSSetViewports(1, &m_viewport);
@@ -327,6 +323,41 @@ void cDevice::setIndexBuffer( cIndexBuffer * pIndexBuffer )
 	ibv.Format			= pIndexBuffer->m_Format;
 
 	m_pCommandList->IASetIndexBuffer( &ibv );
+}
+
+//-----------------------------------------------------------------------------
+//!	
+//-----------------------------------------------------------------------------
+ID3D12DescriptorHeap * cDevice::GetDescriptorHeap( D3D12_DESCRIPTOR_HEAP_TYPE eType )
+{
+	if( eType < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES ) {
+		return m_DescriptorHeap[ eType ].m_pDescriptorHeap;
+	}
+	return nullptr;
+}
+
+//-----------------------------------------------------------------------------
+//!	
+//-----------------------------------------------------------------------------
+D3D12_CPU_DESCRIPTOR_HANDLE cDevice::GetCpuHandle( D3D12_DESCRIPTOR_HEAP_TYPE eType, UINT index )
+{
+	if( eType < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES ) {
+		return m_DescriptorHeap[ eType ].GetCpuHandle( index );
+	}
+
+	return D3D12_CPU_DESCRIPTOR_HANDLE();
+}
+
+//-----------------------------------------------------------------------------
+//!	
+//-----------------------------------------------------------------------------
+D3D12_GPU_DESCRIPTOR_HANDLE cDevice::GetGpuHandle( D3D12_DESCRIPTOR_HEAP_TYPE eType, UINT index )
+{
+	if( eType < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES ) {
+		return m_DescriptorHeap[ eType ].GetGpuHandle( index );
+	}
+
+	return D3D12_GPU_DESCRIPTOR_HANDLE();
 }
 
 };/*namespace D3D12*/

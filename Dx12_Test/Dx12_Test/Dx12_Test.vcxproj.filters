@@ -49,6 +49,9 @@
     <ClInclude Include="Src\D3D12\D3D12ConstantBuffer.h">
       <Filter>Src\D3D12</Filter>
     </ClInclude>
+    <ClInclude Include="Src\D3D12\D3D12DescriptorHeap.h">
+      <Filter>Src\D3D12</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Main.cpp">
@@ -82,6 +85,9 @@
       <Filter>Src\D3D12</Filter>
     </ClCompile>
     <ClCompile Include="Src\D3D12\D3D12ConstantBuffer.cpp">
+      <Filter>Src\D3D12</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\D3D12\D3D12DescriptorHeap.cpp">
       <Filter>Src\D3D12</Filter>
     </ClCompile>
   </ItemGroup>

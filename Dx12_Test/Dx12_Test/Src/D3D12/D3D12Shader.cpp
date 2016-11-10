@@ -60,10 +60,8 @@ bool cShader::create( const wchar_t * pDirectory, const wchar_t * pShaderName )
 	m_PS.pShaderBytecode	= m_pDataPS;
 	m_PS.BytecodeLength		= m_SizePS;
 
-	//// こいつから自動的にルートシグネチャ作れないか？
-	//ID3D12ShaderReflection *	pVertexShaderRef;
-	//D3DReflect( m_pDataVS, m_SizeVS, IID_PPV_ARGS( &pVertexShaderRef ) );
-	//SAFE_RELEASE( pVertexShaderRef );
+	analyzeVS();
+	analyzePS();
 
 	return true;
 }
@@ -83,6 +81,70 @@ void cShader::destroy( void )
 	m_pDataPS	= NULL;
 	m_SizeVS	= 0;
 	m_SizePS	= 0;
+}
+
+//-----------------------------------------------------------------------------
+//!	
+//-----------------------------------------------------------------------------
+void cShader::analyzeVS( void )
+{
+	// こいつから自動的にルートシグネチャ作れないか？
+	ID3D12ShaderReflection *	pRef;
+	ID3D12ShaderReflectionConstantBuffer *	pRefCBuf;
+	D3D12_SHADER_DESC			ShaderDesc;
+	D3D12_SHADER_BUFFER_DESC	ShaderBufDesc;
+	D3D12_SHADER_INPUT_BIND_DESC	ShaderInputBindDesc;
+
+	// シェーダリフレクション
+	D3DReflect( m_pDataVS, m_SizeVS, IID_PPV_ARGS( &pRef ) );
+
+	pRef->GetDesc( &ShaderDesc );
+
+	for( UINT i=0; i<ShaderDesc.ConstantBuffers; ++i ) {
+		pRefCBuf	= pRef->GetConstantBufferByIndex( i );
+		if( pRefCBuf ) {
+			pRefCBuf->GetDesc( &ShaderBufDesc );
+		}
+	}
+
+	for( UINT i=0; i<ShaderDesc.BoundResources; ++i ) {
+		pRef->GetResourceBindingDesc( i, &ShaderInputBindDesc );
+	}
+
+	SAFE_RELEASE( pRef );
+
+}
+
+//-----------------------------------------------------------------------------
+//!	
+//-----------------------------------------------------------------------------
+void cShader::analyzePS( void )
+{
+	// こいつから自動的にルートシグネチャ作れないか？
+	ID3D12ShaderReflection *	pRef;
+	ID3D12ShaderReflectionConstantBuffer *	pRefCBuf;
+	D3D12_SHADER_DESC			ShaderDesc;
+	D3D12_SHADER_BUFFER_DESC	ShaderBufDesc;
+	D3D12_SHADER_INPUT_BIND_DESC	ShaderInputBindDesc;
+
+	// シェーダリフレクション
+	D3DReflect( m_pDataPS, m_SizePS, IID_PPV_ARGS( &pRef ) );
+
+	pRef->GetDesc( &ShaderDesc );
+
+	for( UINT i=0; i<ShaderDesc.ConstantBuffers; ++i ) {
+		pRefCBuf	= pRef->GetConstantBufferByIndex( i );
+		if( pRefCBuf ) {
+			pRefCBuf->GetDesc( &ShaderBufDesc );
+		}
+	}
+
+	for( UINT i=0; i<ShaderDesc.BoundResources; ++i ) {
+		pRef->GetResourceBindingDesc( i, &ShaderInputBindDesc );
+	}
+
+	SAFE_RELEASE( pRef );
+
 }
 
 //-----------------------------------------------------------------------------
