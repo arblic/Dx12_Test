@@ -11,8 +11,8 @@
 //-----------------------------------------------------------------------------
 namespace FileProxy {
 
-	DWORD	getAttr( const char * pFileName );
-	DWORD	getAttr( const wchar_t * pFileName );
+	size_t	getAttr( const char * pFileName );
+	size_t	getAttr( const wchar_t * pFileName );
 
 	bool	isExist( const char * pFileName );
 	bool	isExist( const wchar_t * pFileName );
@@ -20,14 +20,14 @@ namespace FileProxy {
 	bool	isWritable( const char * pFileName );
 	bool	isWritable( const wchar_t * pFileName );
 
-	DWORD	getSize( const char * pFileName );
-	DWORD	getSize( const wchar_t * pFileName );
+	size_t	getSize( const char * pFileName );
+	size_t	getSize( const wchar_t * pFileName );
 
-	DWORD	read( const char * pFileName, void * pBuffer, const DWORD BuffSize );
-	DWORD	read( const wchar_t * pFileName, void * pBuffer, const DWORD BuffSize );
+	size_t	read( const char * pFileName, void * pBuffer, const size_t BuffSize );
+	size_t	read( const wchar_t * pFileName, void * pBuffer, const size_t BuffSize );
 
-	DWORD	write( const char * pFileName, const void * pBuffer, const DWORD BuffSize, const DWORD Offset=0 );
-	DWORD	write( const wchar_t * pFileName, const void * pBuffer, const DWORD BuffSize, const DWORD Offset=0 );
+	size_t	write( const char * pFileName, const void * pBuffer, const size_t BuffSize, const size_t Offset=0 );
+	size_t	write( const wchar_t * pFileName, const void * pBuffer, const size_t BuffSize, const size_t Offset=0 );
 
 	bool	createDir( const char * pDirectoryName );
 	bool	createDir( const wchar_t * pDirectoryName );

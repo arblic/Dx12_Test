@@ -61,8 +61,8 @@ bool cVertexBuffer::create( cDevice * pDevice, const void * pData, size_t Size, 
 	memcpy( p, pData, Size );
 	m_pBuffer->Unmap( 0, nullptr );
 
-	m_Size		= Size;
-	m_Stride	= Stride;
+	m_Size		= (UINT)Size;
+	m_Stride	= (UINT)Stride;
 
 	return true;
 }

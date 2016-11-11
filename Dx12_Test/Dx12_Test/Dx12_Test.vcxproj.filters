@@ -52,6 +52,9 @@
     <ClInclude Include="Src\D3D12\D3D12DescriptorHeap.h">
       <Filter>Src\D3D12</Filter>
     </ClInclude>
+    <ClInclude Include="Src\D3D12\D3D12RootSignature.h">
+      <Filter>Src\D3D12</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Main.cpp">
@@ -88,6 +91,9 @@
       <Filter>Src\D3D12</Filter>
     </ClCompile>
     <ClCompile Include="Src\D3D12\D3D12DescriptorHeap.cpp">
+      <Filter>Src\D3D12</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\D3D12\D3D12RootSignature.cpp">
       <Filter>Src\D3D12</Filter>
     </ClCompile>
   </ItemGroup>

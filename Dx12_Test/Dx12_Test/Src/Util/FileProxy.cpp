@@ -46,23 +46,23 @@ namespace FileProxy {
 //-----------------------------------------------------------------------------
 //!	ファイル属性取得
 //-----------------------------------------------------------------------------
-DWORD getAttr( const char * pFileName )	{ return GetFileAttributesA( pFileName ); }
-DWORD getAttr( const wchar_t * pFileName )	{ return GetFileAttributesW( pFileName ); }
+size_t getAttr( const char * pFileName )	{ return GetFileAttributesA( pFileName ); }
+size_t getAttr( const wchar_t * pFileName )	{ return GetFileAttributesW( pFileName ); }
 
 //-----------------------------------------------------------------------------
 //!	ファイル存在チェック
 //-----------------------------------------------------------------------------
-bool isExist( const char * pFileName )		{ return ((DWORD)-1 != getAttr( pFileName )); }
-bool isExist( const wchar_t * pFileName )	{ return ((DWORD)-1 != getAttr( pFileName )); }
+bool isExist( const char * pFileName )		{ return ((size_t)-1 != getAttr( pFileName )); }
+bool isExist( const wchar_t * pFileName )	{ return ((size_t)-1 != getAttr( pFileName )); }
 
 //-----------------------------------------------------------------------------
 //!	書き込み可能かチェック
 //-----------------------------------------------------------------------------
 bool isWritable( const char * pFileName )
 {
-	DWORD	Attr	= getAttr( pFileName );
+	size_t	Attr	= getAttr( pFileName );
 
-	if( ((DWORD)-1) == Attr )	return true;
+	if( ((size_t)-1) == Attr )	return true;
 	if( FILE_ATTRIBUTE_READONLY & Attr ) return false;
 
 	return true;
@@ -73,9 +73,9 @@ bool isWritable( const char * pFileName )
 //-----------------------------------------------------------------------------
 bool isWritable( const wchar_t * pFileName )
 {
-	DWORD	Attr	= getAttr( pFileName );
+	size_t	Attr	= getAttr( pFileName );
 
-	if( ((DWORD)-1) == Attr )	return true;
+	if( ((size_t)-1) == Attr )	return true;
 	if( FILE_ATTRIBUTE_READONLY & Attr ) return false;
 
 	return true;
@@ -84,10 +84,10 @@ bool isWritable( const wchar_t * pFileName )
 //-----------------------------------------------------------------------------
 //!	ファイルのサイズ取得
 //-----------------------------------------------------------------------------
-DWORD getSize( const char * pFileName )
+size_t getSize( const char * pFileName )
 {
 	HANDLE	hFile	= NULL;
-	DWORD	Size	= 0;
+	size_t	Size	= 0;
 
 	hFile = GetHandleRA( pFileName );
 	if( IsEnableHandle( hFile ) ) {
@@ -101,10 +101,10 @@ DWORD getSize( const char * pFileName )
 //-----------------------------------------------------------------------------
 //!	ファイルのサイズ取得
 //-----------------------------------------------------------------------------
-DWORD getSize( const wchar_t * pFileName )
+size_t getSize( const wchar_t * pFileName )
 {
 	HANDLE	hFile	= NULL;
-	DWORD	Size	= 0;
+	size_t	Size	= 0;
 
 	hFile = GetHandleRW( pFileName );
 	if( IsEnableHandle( hFile ) ) {
@@ -118,7 +118,7 @@ DWORD getSize( const wchar_t * pFileName )
 //-----------------------------------------------------------------------------
 //!	読み取り
 //-----------------------------------------------------------------------------
-DWORD read( const char * pFileName, void * pBuffer, const DWORD BuffSize )
+size_t read( const char * pFileName, void * pBuffer, const size_t BuffSize )
 {
 	HANDLE	hFile		= NULL;
 	DWORD	ReadSize	= 0;
@@ -127,20 +127,20 @@ DWORD read( const char * pFileName, void * pBuffer, const DWORD BuffSize )
 	if( IsEnableHandle( hFile ) ) {
 		ReadSize = GetFileSize( hFile, NULL );
 		if( ReadSize <= BuffSize ) {
-			ReadFile( hFile, pBuffer, BuffSize, &ReadSize, NULL );
+			ReadFile( hFile, pBuffer, (DWORD)BuffSize, &ReadSize, NULL );
 		} else {
 			ReadSize	= 0;
 		}
 	}
 
 	CloseHandle( hFile );
-	return ReadSize;
+	return (size_t)ReadSize;
 }
 
 //-----------------------------------------------------------------------------
 //!	読み取り
 //-----------------------------------------------------------------------------
-DWORD read( const wchar_t * pFileName, void * pBuffer, const DWORD BuffSize )
+size_t read( const wchar_t * pFileName, void * pBuffer, const size_t BuffSize )
 {
 	HANDLE	hFile		= NULL;
 	DWORD	ReadSize	= 0;
@@ -149,20 +149,20 @@ DWORD read( const wchar_t * pFileName, void * pBuffer, const DWORD BuffSize )
 	if( IsEnableHandle( hFile ) ) {
 		ReadSize = GetFileSize( hFile, NULL );
 		if( ReadSize <= BuffSize ) {
-			ReadFile( hFile, pBuffer, BuffSize, &ReadSize, NULL );
+			ReadFile( hFile, pBuffer, (DWORD)BuffSize, &ReadSize, NULL );
 		} else {
 			ReadSize	= 0;
 		}
 	}
 
 	CloseHandle( hFile );
-	return ReadSize;
+	return (size_t)ReadSize;
 }
 
 //-----------------------------------------------------------------------------
 //!	書き込み
 //-----------------------------------------------------------------------------
-DWORD write( const char * pFileName, const void * pBuffer, const DWORD BuffSize, const DWORD Offset )
+size_t write( const char * pFileName, const void * pBuffer, const size_t BuffSize, const size_t Offset )
 {
 	HANDLE	hFile		= NULL;
 	DWORD	WrittenSize	= 0;
@@ -170,19 +170,19 @@ DWORD write( const char * pFileName, const void * pBuffer, const DWORD BuffSize,
 	hFile = GetHandleWA( pFileName );
 	if( IsEnableHandle( hFile ) ) {
 		if( 0 < Offset ) {
-			SetFilePointer( hFile, Offset, NULL, FILE_END );
+			SetFilePointer( hFile, (LONG)Offset, NULL, FILE_END );
 		}
-		WriteFile( hFile, pBuffer, BuffSize, &WrittenSize, NULL );
+		WriteFile( hFile, pBuffer, (DWORD)BuffSize, &WrittenSize, NULL );
 	}
 
 	CloseHandle( hFile );
-	return WrittenSize;
+	return (size_t)WrittenSize;
 }
 
 //-----------------------------------------------------------------------------
 //!	書き込み
 //-----------------------------------------------------------------------------
-DWORD write( const wchar_t * pFileName, const void * pBuffer, const DWORD BuffSize, const DWORD Offset )
+size_t write( const wchar_t * pFileName, const void * pBuffer, const size_t BuffSize, const size_t Offset )
 {
 	HANDLE	hFile		= NULL;
 	DWORD	WrittenSize	= 0;
@@ -190,13 +190,13 @@ DWORD write( const wchar_t * pFileName, const void * pBuffer, const DWORD BuffSi
 	hFile = GetHandleWW( pFileName );
 	if( IsEnableHandle( hFile ) ) {
 		if( 0 < Offset ) {
-			SetFilePointer( hFile, Offset, NULL, FILE_END );
+			SetFilePointer( hFile, (LONG)Offset, NULL, FILE_END );
 		}
-		WriteFile( hFile, pBuffer, BuffSize, &WrittenSize, NULL );
+		WriteFile( hFile, pBuffer, (DWORD)BuffSize, &WrittenSize, NULL );
 	}
 
 	CloseHandle( hFile );
-	return WrittenSize;
+	return (size_t)WrittenSize;
 }
 
 //-----------------------------------------------------------------------------

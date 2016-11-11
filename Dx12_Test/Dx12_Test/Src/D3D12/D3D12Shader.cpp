@@ -37,8 +37,8 @@ bool cShader::create( const wchar_t * pDirectory, const wchar_t * pShaderName )
 	wchar_t	VS[ MAX_PATH ] = {0};
 	wchar_t	PS[ MAX_PATH ] = {0};
 
-	swprintf_s( VS, L"%s/%s.vso", pDirectory, pShaderName );
-	swprintf_s( PS, L"%s/%s.pso", pDirectory, pShaderName );
+	swprintf_s( VS, L"%s/%s.vs", pDirectory, pShaderName );
+	swprintf_s( PS, L"%s/%s.ps", pDirectory, pShaderName );
 
 	if( !FileProxy::isExist( VS ) )		return false;
 	if( !FileProxy::isExist( PS ) )		return false;
@@ -60,8 +60,7 @@ bool cShader::create( const wchar_t * pDirectory, const wchar_t * pShaderName )
 	m_PS.pShaderBytecode	= m_pDataPS;
 	m_PS.BytecodeLength		= m_SizePS;
 
-	analyzeVS();
-	analyzePS();
+	analyze();
 
 	return true;
 }
@@ -86,14 +85,13 @@ void cShader::destroy( void )
 //-----------------------------------------------------------------------------
 //!	
 //-----------------------------------------------------------------------------
-void cShader::analyzeVS( void )
+void cShader::analyze( void )
 {
-	// こいつから自動的にルートシグネチャ作れないか？
-	ID3D12ShaderReflection *	pRef;
+	ID3D12ShaderReflection *				pRef;
 	ID3D12ShaderReflectionConstantBuffer *	pRefCBuf;
-	D3D12_SHADER_DESC			ShaderDesc;
-	D3D12_SHADER_BUFFER_DESC	ShaderBufDesc;
-	D3D12_SHADER_INPUT_BIND_DESC	ShaderInputBindDesc;
+	D3D12_SHADER_DESC						ShaderDesc;
+	D3D12_SHADER_BUFFER_DESC				ShaderBufDesc;
+	D3D12_SHADER_INPUT_BIND_DESC			ShaderInputBindDesc;
 
 	// シェーダリフレクション
 	D3DReflect( m_pDataVS, m_SizeVS, IID_PPV_ARGS( &pRef ) );
@@ -113,19 +111,6 @@ void cShader::analyzeVS( void )
 
 	SAFE_RELEASE( pRef );
 
-}
-
-//-----------------------------------------------------------------------------
-//!	
-//-----------------------------------------------------------------------------
-void cShader::analyzePS( void )
-{
-	// こいつから自動的にルートシグネチャ作れないか？
-	ID3D12ShaderReflection *	pRef;
-	ID3D12ShaderReflectionConstantBuffer *	pRefCBuf;
-	D3D12_SHADER_DESC			ShaderDesc;
-	D3D12_SHADER_BUFFER_DESC	ShaderBufDesc;
-	D3D12_SHADER_INPUT_BIND_DESC	ShaderInputBindDesc;
 
 	// シェーダリフレクション
 	D3DReflect( m_pDataPS, m_SizePS, IID_PPV_ARGS( &pRef ) );
@@ -161,6 +146,26 @@ const D3D12_SHADER_BYTECODE & cShader::getVS( void )
 const D3D12_SHADER_BYTECODE & cShader::getPS( void )
 {
 	return m_PS;
+}
+
+//-----------------------------------------------------------------------------
+//!	
+//-----------------------------------------------------------------------------
+size_t cShader::getRootSignatureJsonText( char * pTextBuf, size_t Length )
+{
+	size_t	CopyLength	= 0;
+
+	memset( pTextBuf, 0x00, sizeof(char) * Length );
+
+	if( !pTextBuf ) {
+		return m_RootSignatureJsonTextLength;
+	} else {
+		CopyLength	= min( Length - 1, m_RootSignatureJsonTextLength );
+
+		memcpy_s( pTextBuf, CopyLength, m_pRootSignatureJsonText, m_RootSignatureJsonTextLength );
+	}
+
+	return CopyLength;
 }
 
 };/*namespace D3D12*/

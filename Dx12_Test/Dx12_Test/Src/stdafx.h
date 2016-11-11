@@ -18,6 +18,10 @@
 
 #define MY_IID_PPV_ARGS IID_PPV_ARGS
 
+// jansson インクルード + リンク
+#include "../../../mw/Jansson/include/jansson.h"
+#pragma comment( lib, "jansson.lib" )
+
 #include "Util/Utility.h"
 #include "Util/FileProxy.h"
 
@@ -30,3 +34,4 @@
 #include "D3D12/D3D12ConstantBuffer.h"
 #include "D3D12/D3D12Shader.h"
 #include "D3D12/D3D12Texture.h"
+#include "D3D12/D3D12RootSignature.h"

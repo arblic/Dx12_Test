@@ -65,7 +65,7 @@ bool cIndexBuffer::create( cDevice * pDevice, const void * pData, size_t Size, b
 	memcpy( p, pData, Size );
 	m_pBuffer->Unmap( 0, nullptr );
 
-	m_Size	= Size;
+	m_Size	= (UINT)Size;
 
 	return true;
 }

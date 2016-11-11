@@ -24,10 +24,10 @@ public:
 
 	const D3D12_SHADER_BYTECODE &	getVS( void );
 	const D3D12_SHADER_BYTECODE &	getPS( void );
+	size_t getRootSignatureJsonText( char * pTextBuf, size_t Length );
 
 private:
-	void analyzeVS( void );
-	void analyzePS( void );
+	void analyze( void );
 
 private:
 	D3D12_SHADER_BYTECODE	m_VS;
@@ -36,6 +36,9 @@ private:
 	size_t					m_SizeVS;
 	BYTE *					m_pDataPS;
 	size_t					m_SizePS;
+
+	char *					m_pRootSignatureJsonText;
+	size_t					m_RootSignatureJsonTextLength;
 };
 
 };/*namespace D3D12*/

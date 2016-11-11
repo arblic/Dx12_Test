@@ -14,6 +14,10 @@ public:
 	void	setColor	( float fR, float fG, float fB, float fA )		{ r=fR; g=fG; b=fB; a=fA; }
 };
 
+struct cBuf {
+	DirectX::XMMATRIX	World;
+	float				Color[4];
+};
 
 static LPCWSTR	kWindowTitle = L"DX12 Sample";
 static const int	kWindowWidth = 640;
@@ -26,8 +30,8 @@ D3D12::cDevice				m_Device;
 ID3D12RootSignature*		g_pRootSignature;
 ID3D12PipelineState*		g_pPipelineState;
 
-D3D12::cShader				m_Shader;
 D3D12::cShader				m_Simple;
+D3D12::cShader				m_SimpleEx;
 
 D3D12::cVertexBuffer		m_VertexBuffer;
 D3D12::cIndexBuffer			m_IndexBuffer;
@@ -36,13 +40,6 @@ D3D12::cTexture				m_Texture;
 
 D3D12::cConstantBuffer		m_CBViewProj;
 D3D12::cConstantBuffer		m_CBWorld[ 100 ];
-
-DirectX::XMMATRIX			m_ViewProjMtx;
-DirectX::XMMATRIX *			m_pWorldMtx;
-
-int		g_frameIndex;
-UINT	g_rtvDescriptorSize;
-UINT64	g_fenceValue;
 
 double	g_SumTime	= 0.0;
 int		g_SumCount	= 0;
@@ -160,8 +157,8 @@ void InitAssets()
 	HRESULT hr;
 
 	// シェーダバイナリを読み込む
-	assert( m_Shader.create( L"C:/MyProject/Dx12_Test/Dx12_Test/Dx12_Test/bin", L"Sample" ) );
 	assert( m_Simple.create( L"C:/MyProject/Dx12_Test/Dx12_Test/Dx12_Test/bin", L"Simple2D" ) );
+	assert( m_SimpleEx.create( L"C:/MyProject/Dx12_Test/Dx12_Test/Dx12_Test/bin", L"SimpleEx" ) );
 
 	// ルートシグネチャを作成する
 	{
@@ -250,7 +247,7 @@ void InitAssets()
 
 		D3D12_RASTERIZER_DESC rasterDesc = {};
 		rasterDesc.FillMode = D3D12_FILL_MODE_SOLID;
-		rasterDesc.CullMode = D3D12_CULL_MODE_NONE;
+		rasterDesc.CullMode = D3D12_CULL_MODE_FRONT;
 		rasterDesc.FrontCounterClockwise = false;
 		rasterDesc.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
 		rasterDesc.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
@@ -306,34 +303,34 @@ void InitAssets()
 		int		Index	= 0;
 		float	Pos		= 0.5f;
 		pVertex[ Index ].setPosition( -Pos,  Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition(  Pos,  Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition( -Pos, -Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 1.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition(  Pos, -Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 1.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition(  Pos,  Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 0.0f, 0.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition( -Pos, -Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 1.0f );	pVertex[ Index ].setColor( 0.0f, 1.0f, 0.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition(  Pos, -Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 1.0f );	pVertex[ Index ].setColor( 0.0f, 0.0f, 1.0f, 1.0f );	++Index;
 
 		pVertex[ Index ].setPosition(  Pos,  Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition(  Pos,  Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition(  Pos, -Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 1.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition(  Pos, -Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 1.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition(  Pos,  Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 0.0f, 0.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition(  Pos, -Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 1.0f );	pVertex[ Index ].setColor( 0.0f, 1.0f, 0.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition(  Pos, -Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 1.0f );	pVertex[ Index ].setColor( 0.0f, 0.0f, 1.0f, 1.0f );	++Index;
 
 		pVertex[ Index ].setPosition(  Pos,  Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition( -Pos,  Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition(  Pos, -Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 1.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition( -Pos, -Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 1.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition( -Pos,  Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 0.0f, 0.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition(  Pos, -Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 1.0f );	pVertex[ Index ].setColor( 0.0f, 1.0f, 0.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition( -Pos, -Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 1.0f );	pVertex[ Index ].setColor( 0.0f, 0.0f, 1.0f, 1.0f );	++Index;
 
 		pVertex[ Index ].setPosition( -Pos,  Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition( -Pos,  Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition( -Pos, -Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 1.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition( -Pos, -Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 1.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition( -Pos,  Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 0.0f, 0.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition( -Pos, -Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 1.0f );	pVertex[ Index ].setColor( 0.0f, 1.0f, 0.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition( -Pos, -Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 1.0f );	pVertex[ Index ].setColor( 0.0f, 0.0f, 1.0f, 1.0f );	++Index;
 
 		pVertex[ Index ].setPosition( -Pos,  Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition( -Pos,  Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition(  Pos,  Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 1.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition(  Pos,  Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 1.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition( -Pos,  Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 0.0f, 0.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition(  Pos,  Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 1.0f );	pVertex[ Index ].setColor( 0.0f, 1.0f, 0.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition(  Pos,  Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 1.0f );	pVertex[ Index ].setColor( 0.0f, 0.0f, 1.0f, 1.0f );	++Index;
 
 		pVertex[ Index ].setPosition( -Pos, -Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition(  Pos, -Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition( -Pos, -Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 1.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
-		pVertex[ Index ].setPosition(  Pos, -Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 1.0f );	pVertex[ Index ].setColor( 1.0f, 1.0f, 1.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition(  Pos, -Pos,  Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 0.0f );	pVertex[ Index ].setColor( 1.0f, 0.0f, 0.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition( -Pos, -Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 0.0f, 1.0f );	pVertex[ Index ].setColor( 0.0f, 1.0f, 0.0f, 1.0f );	++Index;
+		pVertex[ Index ].setPosition(  Pos, -Pos, -Pos, 1.0f );	pVertex[ Index ].setTexcoord( 1.0f, 1.0f );	pVertex[ Index ].setColor( 0.0f, 0.0f, 1.0f, 1.0f );	++Index;
 
 		m_VertexBuffer.create( &m_Device, pVertex, sizeof(pVertex), sizeof(cVertex) );
 	}
@@ -397,7 +394,8 @@ void DestroyAssets()
 
 	g_pPipelineState->Release();
 
-	m_Shader.destroy();
+	m_SimpleEx.destroy();
+	m_Simple.destroy();
 
 	g_pRootSignature->Release();
 }
@@ -408,8 +406,9 @@ void UpdateScene()
 	static float sAngle = 0.0f;
 	sAngle += 1.0f;
 	float PosX	= -6.0f;
-	float PosY	= 5.0f;
-	float Gap	= 1.5f;
+	float PosY	= 6.0f;
+	float GapX	= 1.8f;
+	float GapY	= 1.2f;
 
 	float MulX, MulY;
 
@@ -425,7 +424,7 @@ void UpdateScene()
 		MulX	= (float)(i%10);
 		MulY	= (float)(i/10);
 
-		Trans	= DirectX::XMMatrixTranslation( PosX + Gap * MulX, PosY - Gap * MulY, 0.0f );
+		Trans	= DirectX::XMMatrixTranslation( PosX + GapX * MulX, PosY - GapY * MulY, 0.0f );
 		World	= DirectX::XMMatrixTranspose( DirectX::XMMatrixMultiply( Rot, Trans ) );
 
 		m_CBWorld[ i ].setValue( &World, sizeof(World) );
